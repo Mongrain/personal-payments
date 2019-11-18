@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<meta charset="UTF-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+		<meta http-equiv="X-UA-Compatible" content="ie=edge" />
+    <title>Pay.js</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@3.3.7/dist/css/bootstrap.min.css">
+    <script src="https://cdn.bootcss.com/jquery/1.12.4/jquery.min.js"></script>
+    <!-- <script src="https://cdn.jsdelivr.net/npm/bootstrap@3.3.7/dist/js/bootstrap.min.js"></script> -->
+    <style>
+      body {
+        padding: 20px;
+      }
+    </style>
+	</head>
+	<body>
+    <pre></pre>
+    <div id="needBuy" style="display: none">
+      <h3>页面尚未购买，页面价格3毛</h3>
+      <button class="btn btn-primary" id="buyIt">购买</button>
+      <div id="payInfomation" style="display: none;">
+        <h4>转账 <span id="realPrice" style="color: red"></span> 到微信，即可购买本页面内容 订单失效时间：<span id="expiredTime"></span></h4>
+        <p>
+          <img src="http://ww1.sinaimg.cn/large/6d9c0eadgy1g91zq9mbx9j20v216m40q.jpg" style="max-width: 300px"/>
+        </p>
+      </div>
+    </div>
+    <div id="alreadyBuy" style="display: none">
+      <h3>页面已经购买</h3>
+    </div>
+		<script>
+      // 页面价格
+      const pagePrice = 0.3
+
+			function getUniqueUser() {
+				var canvas = document.createElement('canvas');
+				var ctx = canvas.getContext('2d');
+				var txt = 'http://security.tencent.com/';
+				ctx.textBaseline = 'top';
+				ctx.font = "14px 'Arial'";
+				ctx.textBaseline = 'tencent';
+				ctx.fillStyle = '#f60';
+				ctx.fillRect(125, 1, 62, 20);
+				ctx.fillStyle = '#069';
+				ctx.fillText(txt, 2, 15);
+				ctx.fillStyle = 'rgba(102, 204, 0, 0.7)';
+				ctx.fillText(txt, 4, 17);
+
+				var b64 = canvas
+					.toDataURL()
+					.replace('data:image/png;base64,', '');
+				var bin = atob(b64);
+				var crc = bin2hex(bin.slice(-16, -12));
+
+				function bin2hex(str) {
+					var result = '';
+					for (i = 0; i < str.length; i++) {
+						result += int16_to_hex(str.charCodeAt(i));
+					}
+					return result;
+				}
+				function int16_to_hex(i) {
+					var result = i.toString(16);
+					var j = 0;
+					while (j + result.length < 4) {
+						result = '0' + result;
+						j++;
+					}
+					return result;
+				}
+				return crc;
+			}
+      const user = getUniqueUser();
+      const page = encodeURIComponent(location.href);
+      document.querySelector('pre').innerHTML = JSON.stringify({
+        user,
+        page
+      }, null, 2)
+
+      function checkIsBought() {
+        $.ajax({
+          url: 'https://www.unb.ink/order/list',
+          data: { user, page },
+          success(res) {
+            if (res.show) {
+              document.querySelector('#needBuy').style.display = 'none'
+              document.querySelector('#alreadyBuy').style.display = 'block'
+            } else {
+              document.querySelector('#needBuy').style.display = 'block'
+              document.querySelector('#alreadyBuy').style.display = 'none'
+            }
+          }
+        })
+      }
+
+      function bindDom() {
+        document.querySelector('#buyIt').onclick = function() {
+          $.ajax({
+            url: 'https://www.unb.ink/order/create',
+            type: 'post',
+            data: { user, page, price: pagePrice },
+            success(res) {
+              document.querySelector('#payInfomation').style.display = 'block'
+              document.querySelector('#realPrice').innerHTML = res.price
+              document.querySelector('#expiredTime').innerHTML = new Date(res.expired).toLocaleString()
+            }
+          })
+        }
+      }
+
+      checkIsBought()
+      bindDom()
+		</script>
+	</body>
+</html>
