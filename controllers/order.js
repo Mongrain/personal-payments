@@ -53,6 +53,21 @@ async function initStorageData(userCurrentNumber, priceCharge) {
 }
 
 /**
+ * 通过真实价格返回对应的市场价
+ * @param {Number} realPrice 
+ */
+async function getMarkPrice(realPrice) {
+  const [userCurrentNumber] = await getStorageData()
+  let ret = -1
+  Object.entries(userCurrentNumber).some(([markPrice, users]) => {
+    if (Object.values(users).some((item) => item.some(({ price }) => Number(price) === Number(realPrice)))) {
+      ret = markPrice
+    }
+  })
+  return ret
+}
+
+/**
  * bill
  * work in redis
  */
@@ -111,13 +126,16 @@ const myBill = {
   },
   async fetch({ price, realPrice, user, key }) {
     const [userCurrentNumber, priceCharge] = await getStorageData();
+    console.log('========== fetch ============')
+    console.log('userCurrentNumber', userCurrentNumber)
+    console.log('priceCharge', priceCharge)
+    console.log('========== /fetch ============')
     // 付款的金额
     price = Number(price)
     realPrice = Number(realPrice)
     if (user && price && key) {
       try {
-        initStorageDataByPriceAndUser()
-        const userSchedules = userCurrentNumber[price][user] || null
+        const userSchedules = userCurrentNumber[price] ? userCurrentNumber[price][user] || [] : []
         let ret = null
         userSchedules.some((item) => {
           if (item.expired - Date.now() && item.key == key) {
@@ -131,9 +149,12 @@ const myBill = {
         return null
       }
     } else if (realPrice) {
-      function getUserByPrice(realPrice) {
+      async function getUserByPrice(realPrice) {
         let target = null;
-        const price = Math.ceil(realPrice)
+        // const price = Math.ceil(realPrice)
+        const price = await getMarkPrice(realPrice)
+        console.log('getMarkPrice', price)
+        console.log(userCurrentNumber[String(price)])
         if (userCurrentNumber[price]) {
           Object.entries(userCurrentNumber[price]).some(([k, v]) => v.some((item) => {
             if (Number(item.price) === Number(realPrice) && item.expired - Date.now()) {
@@ -145,22 +166,13 @@ const myBill = {
         }
         return target;
       }
-      const ret = getUserByPrice(realPrice)
+      const ret = await getUserByPrice(realPrice)
       if (ret && ret.expired - Date.now()) {
-        return getUserByPrice(realPrice)
+        return await getUserByPrice(realPrice)
       }
       return null
     } else {
       return null
-    }
-
-    function initStorageDataByPriceAndUser() {
-      // 初始化用户价格
-      if (!userCurrentNumber[price]) userCurrentNumber[price] = {};
-      // 初始化管理价格
-      if (!priceCharge[price]) priceCharge[price] = Array.from({ length: PAY_BILLS }).map((_, i) => (price - i / 100).toFixed(2));
-      // 初始化这个价格的用户的数据
-      if (!Array.isArray(userCurrentNumber[price][user])) userCurrentNumber[price][user] = []
     }
   }
 }
@@ -172,7 +184,7 @@ stepUp()
  */
 function stepUp() {
   initStorageData();
-  setImmediate(async () => {
+  setInterval(async () => {
     const [userCurrentNumber, priceCharge] = await getStorageData();
     const pricesArr = Object.entries(userCurrentNumber)
     pricesArr.map(([k, value]) => {
@@ -180,19 +192,20 @@ function stepUp() {
         userCurrentNumber[k][user] = userSchedules.filter(({ price, expired }) => {
           // 过期了
           if (expired - Date.now() < 0) {
+            const markPrice = await getMarkPrice(price)
+            priceCharge[markPrice].push(price)
             return false
-            priceCharge[Math.ceil(price)].push(price)
           }
           return true
         })
       })
     })
     setStorageData(userCurrentNumber, priceCharge);
-  })
+  }, 1000)
 }
 
 ROUTER.post('/bill/payed', async (req, res, next) => {
-  console.log('payed is got a request.')
+  console.log('payed is got a request.', req.body)
   // 付款的金额
   let { realPrice } = req.body
   const bill = await myBill.fetch({ realPrice: realPrice })
