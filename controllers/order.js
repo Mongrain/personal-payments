@@ -187,6 +187,20 @@ const myBill = {
     } else {
       return null
     }
+  },
+  async remove(realPrice) {
+    realPrice = Number(realPrice)
+    const [userCurrentNumber, priceCharge] = await getStorageData()
+    Object.entries(userCurrentNumber).some(([markPrice, users]) => {
+      Object.values(users).some((item, index) => item.some(({ price }, idx) => {
+        if (Number(price) === realPrice) {
+          const user = Object.keys(users)[index]
+          userCurrentNumber[markPrice][user].splice(idx, 1)
+          priceCharge[markPrice].push(realPrice)
+        }
+      }))
+    })
+    setStorageData(userCurrentNumber, priceCharge)
   }
 }
 
@@ -225,6 +239,7 @@ ROUTER.post('/bill/payed', async (req, res, next) => {
   if (!bill) return res.send('error')
   try {
     await Order.update({ isPayed: 1 }, { raw: true, where: { id: bill.id } })
+    await myBill.remove(realPrice)
     res.send('success')
   } catch (err) {
     res.send('error')
