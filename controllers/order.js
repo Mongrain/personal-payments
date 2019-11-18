@@ -56,8 +56,22 @@ async function initStorageData(userCurrentNumber, priceCharge) {
  * 通过真实价格返回对应的市场价
  * @param {Number} realPrice 
  */
-async function getMarkPrice(realPrice) {
+async function asyncGetMarkPrice(realPrice) {
   const [userCurrentNumber] = await getStorageData()
+  let ret = -1
+  Object.entries(userCurrentNumber).some(([markPrice, users]) => {
+    if (Object.values(users).some((item) => item.some(({ price }) => Number(price) === Number(realPrice)))) {
+      ret = markPrice
+    }
+  })
+  return ret
+}
+/**
+ * 通过真实价格返回对应的市场价 SYNC
+ * @param {Number} realPrice 
+ * @param {object} userCurrentNumber
+ */
+function getMarkPrice(realPrice, userCurrentNumber) {
   let ret = -1
   Object.entries(userCurrentNumber).some(([markPrice, users]) => {
     if (Object.values(users).some((item) => item.some(({ price }) => Number(price) === Number(realPrice)))) {
@@ -152,8 +166,7 @@ const myBill = {
       async function getUserByPrice(realPrice) {
         let target = null;
         // const price = Math.ceil(realPrice)
-        const price = await getMarkPrice(realPrice)
-        console.log('getMarkPrice', price)
+        const price = await asyncGetMarkPrice(realPrice)
         console.log(userCurrentNumber[String(price)])
         if (userCurrentNumber[price]) {
           Object.entries(userCurrentNumber[price]).some(([k, v]) => v.some((item) => {
@@ -192,7 +205,7 @@ function stepUp() {
         userCurrentNumber[k][user] = userSchedules.filter(({ price, expired }) => {
           // 过期了
           if (expired - Date.now() < 0) {
-            const markPrice = await getMarkPrice(price)
+            const markPrice = getMarkPrice(price, userCurrentNumber)
             priceCharge[markPrice].push(price)
             return false
           }
