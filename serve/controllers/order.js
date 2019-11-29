@@ -199,12 +199,12 @@ const myBill = {
   }
 }
 
-stepUp()
+setup()
 
 /**
  * start
  */
-function stepUp() {
+function setup() {
   initStorageData();
   setInterval(async () => {
     const [userCurrentNumber, priceCharge] = await getStorageData();
@@ -259,6 +259,10 @@ ROUTER.post('/order/create', async (req, res, next) => {
   })
   res.send(newBill);
 
+  /**
+   * ensure fetch an order
+   * return order
+   */
   async function ensureAnOrder() {
     let order = await Order.findOne({ raw: true, where: { page, user } })
     if (!order) {
