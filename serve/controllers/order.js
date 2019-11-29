@@ -140,10 +140,6 @@ const myBill = {
   },
   async fetch({ price, realPrice, user, key }) {
     const [userCurrentNumber, priceCharge] = await getStorageData();
-    console.log('========== fetch ============')
-    console.log('userCurrentNumber', userCurrentNumber)
-    console.log('priceCharge', priceCharge)
-    console.log('========== /fetch ============')
     // 付款的金额
     price = Number(price)
     realPrice = Number(realPrice)
@@ -167,7 +163,6 @@ const myBill = {
         let target = null;
         // const price = Math.ceil(realPrice)
         const price = await asyncGetMarkPrice(realPrice)
-        console.log(userCurrentNumber[String(price)])
         if (userCurrentNumber[price]) {
           Object.entries(userCurrentNumber[price]).some(([k, v]) => v.some((item) => {
             if (Number(item.price) === Number(realPrice) && item.expired - Date.now()) {
@@ -232,7 +227,6 @@ function stepUp() {
 }
 
 ROUTER.post('/bill/payed', async (req, res, next) => {
-  console.log('payed is got a request.', req.body)
   // 付款的金额
   let { realPrice } = req.body
   const bill = await myBill.fetch({ realPrice: realPrice })
